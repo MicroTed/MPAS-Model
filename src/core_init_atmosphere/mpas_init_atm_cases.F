@@ -23,6 +23,7 @@ module init_atm_cases
    use mpas_atmphys_functions
    use mpas_atmphys_initialize_real
    use mpas_log, only : mpas_log_write
+   use mpas_io_units, only : mpas_new_unit, mpas_release_unit
 
    ! Added only clause to keep xlf90 from getting confused from the overloaded abs intrinsic in mpas_timekeeping
    use mpas_timekeeping !, only: MPAS_Time_type, MPAS_TimeInterval_type, MPAS_Clock_type, &
@@ -1397,9 +1398,9 @@ module init_atm_cases
 
       real (kind=RKIND) :: cof1, cof2
       real (kind=RKIND), pointer :: cf1, cf2, cf3
-      real (kind=RKIND) :: ztr, thetar, ttr, thetas, um, us, zts, pitop, pibtop, ptopb, ptop, rcp, rcv, p0
-      real (kind=RKIND) :: radx, radz, zcent, xmid, delt, xloc, rad, yloc, ymid, a_scale
-      real (kind=RKIND) :: pres, temp, qvs
+      real (kind=RKIND) :: um, us, zts, pitop, pibtop, ptopb, ptop, rcp, rcv, p0
+      real (kind=RKIND) :: radx, radz, xmid, delt, xloc, rad, yloc, ymid, ymax, ymin, a_scale
+      real (kind=RKIND) :: pres, temp, es, qvs
 
       real (kind=RKIND), dimension(:), pointer :: xCell, yCell, zCell
       real (kind=RKIND), dimension(:), pointer :: xEdge, yEdge, zEdge
@@ -1414,6 +1415,45 @@ module init_atm_cases
       real (kind=RKIND), dimension(:), pointer :: u_init, qv_init, angleEdge, fEdge, fVertex
 
       character (len=StrKIND), pointer :: config_interface_projection
+
+! BEGIN LJW multibubble parameters (should be actually in namelist)
+
+      integer (kind=RKIND) :: multi_pert   = 3          ! (2*multi_pert_y + 1) # of bubbles
+      real (kind=RKIND) :: xic          =  58500.0   ! center of bubble in x-direction (m)
+      real (kind=RKIND) :: yjc          = 384000.0   ! center of bubble in y-direction (m)
+      real (kind=RKIND) :: zcent        =   1500.0   ! height of center of bubble above ground (m)
+      real (kind=RKIND) :: bhrad        =  10000.0   ! horizontal radius of bubble (m)
+      real (kind=RKIND) :: bvrad        =   1500.0   ! vertical radius of bubble (m)
+      real (kind=RKIND) :: bptpert      =      3.0   ! max potential temp perturbation (K)
+      real (kind=RKIND) :: rand_amp     =      0.0   ! random number perturbation max amplitude
+      real (kind=RKIND) :: rand
+      integer           :: nb
+      integer           :: ierr
+      integer           :: iunit
+
+      real psfc, thsfc, qvsfc, yb
+      real (kind=RKIND), dimension(nVertLevels) :: tsnd, qvsnd, usnd, vsnd
+      logical :: debug = .true.
+
+
+! END LJW multibubble parameters
+
+! BEGIN Weisman-Klemp Thermodynamic and shear parameters
+ 
+      real (kind=RKIND) :: ztr    = 12000.
+      real (kind=RKIND) :: thetar = 343.
+      real (kind=RKIND) :: ttr    = 213.
+      real (kind=RKIND) :: thetas = 300.5
+
+      real (kind=RKIND) :: case4_um  = 12.
+      real (kind=RKIND) :: case4_us  = 10.
+      real (kind=RKIND) :: case4_zts = 2500.
+
+      real (kind=RKIND) :: case5_um  = 30.
+      real (kind=RKIND) :: case5_us  = 15.
+      real (kind=RKIND) :: case5_zts = 5000.
+
+! END Weisman-Klemp Thermodynamic and shear parameters
 
       call mpas_pool_get_array(mesh, 'xCell', xCell)
       call mpas_pool_get_array(mesh, 'yCell', yCell)
@@ -1540,16 +1580,19 @@ module init_atm_cases
         end do
       end do
 
-      !     metrics for hybrid coordinate and vertical stretching
-
-      str = 1.0
-      zt = 20000.
-      dz = zt/float(nz1)
-
-!      write(0,*) ' dz = ',dz
       call mpas_log_write(' hx computation complete ')
 
-      do k=1,nz
+! LJW_HACK
+
+      if ( multi_pert .eq. 0 ) then
+
+!       parameters for internal hybrid coordinate and vertical stretching
+
+        str = 1.0
+        zt = 20000.
+        dz = zt/float(nz1)
+
+        do k=1,nz
 
 !           sh(k) is the stretching specified for height surfaces
 
@@ -1564,7 +1607,7 @@ module init_atm_cases
 !                        and nearly constant dzeta/dz 
 
 !            zw(k) = float(k-1)*dz
-            zw(k) = zc(k)
+             zw(k) = zc(k)
 !
 !           ah(k) governs the transition between terrain-following 
 !           and pureheight coordinates
@@ -1574,7 +1617,24 @@ module init_atm_cases
 !            ah(k) = 1.-cos(.5*pii*(k-1)*dz/zt)**6
             ah(k) = 1.
 !            call mpas_log_write(' k, zc, zw, ah = $i $r $r $r', intArgs=(/k/), realArgs=(/zc(k),zw(k),ah(k)/))
-      end do
+        end do
+
+      else ! read in from input_grid_z - need to harden this code to check for wrong number of levels
+
+          call mpas_new_unit(iunit)
+          open(unit=iunit, file='input_grid_z', form='formatted', status='old', iostat=ierr)
+          do k=1,nz
+            read(unit=iunit, fmt=*, iostat=ierr) zw(k)
+            ah(k) = 1.
+            call mpas_log_write(' k, zw, ah = $i $r $r ', intArgs=(/k/), realArgs=(/zw(k),ah(k)/))
+          end do
+
+          call mpas_release_unit(iunit)
+
+          zt = zw(nz) ! needed below
+        
+      endif
+
       do k=1,nz1
          dzw (k) = zw(k+1)-zw(k)
          rdzw(k) = 1./dzw(k)
@@ -1619,8 +1679,8 @@ module init_atm_cases
 
       do iCell=1,nCells
         do k=1,nz
-            zgrid(k,iCell) = ah(k)*(zc(k)*(1.-hx(k,iCell)/zt)+hx(k,iCell)) &
-                           + (1.-ah(k)) * zc(k)
+            zgrid(k,iCell) = ah(k)*(zw(k)*(1.-hx(k,iCell)/zt)+hx(k,iCell)) &
+                           + (1.-ah(k)) * zw(k)
         end do
         do k=1,nz1
           zz (k,iCell) = (zw(k+1)-zw(k))/(zgrid(k+1,iCell)-zgrid(k,iCell))
@@ -1645,44 +1705,38 @@ module init_atm_cases
         end do
       end do
 
-!
-! convective initialization
-!
-         ztr    = 12000.
-         thetar = 343.
-         ttr    = 213.
-         thetas = 300.5
+!     call mpas_log_write(' rgas, cp, gravity = $r $r $r', realArgs=(/rgas,cp, gravity/))
 
-!         call mpas_log_write(' rgas, cp, gravity = $r $r $r', realArgs=(/rgas,cp, gravity/))
+      if( (test_case == 4) .and. (multi_pert .eq. 0) ) then  ! internal sounding being generated, compute shear
 
-      if ( test_case == 4) then ! squall line parameters
-         um = 12.
-         us = 10.
-         zts = 2500.
-      else if (test_case == 5) then !supercell parameters
-         um = 30.
-         us = 15.
-         zts = 5000.
-      end if
+        if ( test_case == 4) then ! squall line parameters
+          um  = case4_um
+          us  = case4_us
+          zts = case4_zts
+        else if (test_case == 5) then !supercell parameters
+          um  = case5_um
+          us  = case5_us
+          zts = case5_zts
+       end if
 
-         do i=1,nCells
-            do k=1,nz1
-               ztemp = .5*(zgrid(k,i)+zgrid(k+1,i))
-               if(ztemp .gt. ztr) then
-                  t (k,i) = thetar*exp(9.8*(ztemp-ztr)/(1003.*ttr))
-                  relhum(k,i) = 0.25
-               else
-                  t (k,i) = 300.+43.*(ztemp/ztr)**1.25
-                  relhum(k,i) = (1.-0.75*(ztemp/ztr)**1.25)
-                  if(t(k,i).lt.thetas) t(k,i) = thetas
-               end if
-               tb(k,i) = t(k,i)
-               thi(k,i) = t(k,i)
-               tbi(k,i) = t(k,i)
-               cqw(k,i) = 1.
-               cqwb(k,i) = 1.
-            end do
+       do i=1,nCells
+         do k=1,nz1
+           ztemp = .5*(zgrid(k,i)+zgrid(k+1,i))
+           if(ztemp .gt. ztr) then
+             t (k,i) = thetar*exp(9.8*(ztemp-ztr)/(1003.*ttr))
+             relhum(k,i) = 0.25
+           else
+             t (k,i) = 300.+43.*(ztemp/ztr)**1.25
+             relhum(k,i) = (1.-0.75*(ztemp/ztr)**1.25)
+             if(t(k,i).lt.thetas) t(k,i) = thetas
+           end if
+           tb(k,i) = t(k,i)
+           thi(k,i) = t(k,i)
+           tbi(k,i) = t(k,i)
+           cqw(k,i) = 1.
+           cqwb(k,i) = 1.
          end do
+       end do
 
 !         relhum(:,:) = 0.
 
@@ -1692,21 +1746,56 @@ module init_atm_cases
             cell1 = cellsOnEdge(1,i)
             cell2 = cellsOnEdge(2,i)
             if(cell1 <= nCellsSolve .or. cell2 <= nCellsSolve) then
-            do k=1,nz1
-               ztemp = .25*( zgrid(k,cell1 )+zgrid(k+1,cell1 )  &
-                            +zgrid(k,cell2)+zgrid(k+1,cell2))
-               if(ztemp.lt.zts)  then
+              do k=1,nz1
+                ztemp = .25*( zgrid(k,cell1)+zgrid(k+1,cell1)  &
+                             +zgrid(k,cell2)+zgrid(k+1,cell2) )
+                if(ztemp.lt.zts)  then
                   u(k,i) = um*ztemp/zts
-               else
+                else
                   u(k,i) = um
-               end if
-               if(i == 1 ) u_init(k) = u(k,i) - us
-               u(k,i) = cos(angleEdge(i)) * (u(k,i) - us)
-            end do
+                end if
+                if(i == 1 ) u_init(k) = u(k,i) - us
+                u(k,i) = cos(angleEdge(i)) * (u(k,i) - us)
+              end do
             end if
          end do
 
-         call mpas_dmpar_bcast_reals(dminfo, nz1, u_init)
+       else ! read in soundng and interpolate it to the vertical grid
+
+         call get_sounding( zw, psfc, thsfc, qvsfc, tsnd, qvsnd, usnd, vsnd, nz, debug )
+
+         do i=1,nCells
+            do k=1,nz1
+ 
+               t(k,i)    = tsnd(k)
+               tb(k,i)   = t(k,i)
+               thi(k,i)  = t(k,i)
+               tbi(k,i)  = t(k,i)
+               cqw(k,i)  = 1.
+               cqwb(k,i) = 1.
+
+               scalars(index_qv,k,i) = qvsnd(k)
+
+            end do
+         end do
+
+         do i=2, nEdges
+            cell1 = cellsOnEdge(1,i)
+            cell2 = cellsOnEdge(2,i)
+
+            if(cell1 <= nCellsSolve .or. cell2 <= nCellsSolve) then
+               do k=1,nz1
+                  if (i==2) u_init(k) = usnd(k)
+                  u(k,i) = cos(angleEdge(i)) * usnd(k)
+               !  u(k,i) = sin(angleEdge(i)) * usnd(k)
+               end do
+            end if
+
+         end do ! cell loop
+
+       end if
+
+       call mpas_dmpar_bcast_reals(dminfo, nz1, u_init)
 
 !
 !    for reference sounding 
@@ -1723,7 +1812,7 @@ module init_atm_cases
          pibtop = pibtop-dzu(k)*gravity/(cp*cqwb(k,1)*.5*(tb(k,1)+tb(k-1,1))   &
                                    *.5*(zz(k,1)+zz(k-1,1)))
 
-         !call mpas_log_write('$i $r $r $r $r', intArgs=(/k/), realArgs=(/pitop,tb(k,1),dzu(k),tb(k,1)/))
+      !call mpas_log_write('$i $r $r $r $r', intArgs=(/k/), realArgs=(/pitop,tb(k,1),dzu(k),tb(k,1)/))
       end do
       pitop = pitop-.5*dzw(nz1)*gravity*(1.+scalars(index_qv,nz1,1))/(cp*t(nz1,1)*zz(nz1,1))
       pibtop = pibtop-.5*dzw(nz1)*gravity*(1.+qvb(nz1))/(cp*tb(nz1,1)*zz(nz1,1))
@@ -1754,14 +1843,19 @@ module init_atm_cases
      !
      ! update water vapor mixing ratio from humidity profile
      !
-      do i= 1,nCells
-         do k=1,nz1
+
+      if( (test_case == 4) .and. (multi_pert .eq. 0) ) then  ! internal sounding being generated, compute qv
+
+        do i= 1,nCells
+          do k=1,nz1
             temp     = p(k,i)*thi(k,i)
             pres     = p0*p(k,i)**(1./rcp)
             qvs      = 380.*exp(17.27*(temp-273.)/(temp-36.))/pres
             scalars(index_qv,k,i) = min(0.014_RKIND,relhum(k,i)*qvs)
-         end do
-      end do
+          end do
+        end do
+      
+      endif
 
       do k=1,nz1
 !*********************************************************************
@@ -1769,7 +1863,9 @@ module init_atm_cases
 !            qvb(k) = scalars(index_qv,k,1)
                                         
 !           QVB = 0 PRODUCES DRY REFERENCE STATE
+!
             qvb(k) = 0.
+!
 !*********************************************************************
       end do
 
@@ -1784,52 +1880,85 @@ module init_atm_cases
          end do
       end do
 
-      end do !end of iteration loop
+    end do !end of iteration loop
 
-      call mpas_log_write(' base state sounding ')
-      call mpas_log_write(' k,     pb,     rb,     tb,     rtb,     t,     rr,      p,    qvb')
-      do k=1,nVertLevels
-         call mpas_log_write('$i $r $r $r $r $r $r $r $r', intArgs=(/k/), realArgs=(/pb(k,1),rb(k,1),tb(k,1),rtb(k,1),t(k,1),rr(k,1),p(k,1),qvb(k)/))
-      end do
+    call mpas_log_write(' base state sounding ')
+    call mpas_log_write(' k,     pb,     rb,     tb,     rtb,     t,     rr,      p,    qvb')
+    do k=1,nVertLevels
+        call mpas_log_write('$i $r $r $r $r $r $r $r $r', intArgs=(/k/), &
+                            realArgs=(/pb(k,1),rb(k,1),tb(k,1),rtb(k,1),t(k,1),rr(k,1),p(k,1),qvb(k)/))
+    end do
 
-!
-!     potential temperature perturbation
-!
-!      delt = -10.
-!      delt = -0.01
-      delt = 3.
-      radx  = 10000.
-      radz  = 1500.
-      zcent = 1500.
 
-      if (test_case == 4) then          ! squall line prameters
+! Generalize the squall line test for both 2D (XZ) and 3D runs
+! Parameters for bubbles are set at top of subroutine
+
+      if (test_case == 4 .and. multi_pert .eq. 0) then          ! squall line prameters
+
          call mpas_dmpar_max_real(dminfo, maxval(xCell(:)), xmid)
          xmid = xmid * 0.5
-         ymid = 0.0          ! Not used for squall line
+         ymid = 0.0          ! 2D (constant in y) 
+
       else if (test_case == 5) then     ! supercell parameters
+
          call mpas_dmpar_max_real(dminfo, maxval(xCell(:)), xmid)
-         call mpas_dmpar_max_real(dminfo, maxval(yCell(:)), ymid)
+         call mpas_dmpar_max_real(dminfo, maxval(yCell(:)), ymax)
+         call mpas_dmpar_min_real(dminfo, maxval(yCell(:)), ymin)
          xmid = xmid * 0.5
-         ymid = ymid * 0.5
+         ymid = 0.5 * (ymax - ymin)
+
       end if
 
-      do i=1, nCells
-        xloc = xCell(i) - xmid
-        if (test_case == 4) then 
-           yloc = 0.                            !squall line setting
-        else if (test_case == 5) then
-           yloc = yCell(i) - ymid !supercell setting
-        end if
+      if (test_case == 4 .and. multi_pert .ne. 0) then    ! multi bubble squall line
 
-        do k = 1,nz1
-          ztemp     = .5*(zgrid(k+1,i)+zgrid(k,i))
-          rad =sqrt((xloc/radx)**2+(yloc/radx)**2+((ztemp-zcent)/radz)**2)
-          if(rad.lt.1)  then
-            thi(k,i) = thi(k,i) + delt*cos(.5*pii*rad)**2
+        call mpas_dmpar_max_real(dminfo, maxval(yCell(:)), ymid)
+        ymid = ymid * 0.5
+
+        do nb = -multi_pert,multi_pert ! multiple bubble initialization
+
+          yb = ymid + float(nb)*(4.0*bhrad)
+
+          do i=1, nCells
+
+            xloc = xCell(i) - xic
+            yloc = yCell(i) - yb 
+
+            do k = 1,nz1
+              ztemp = .5*(zgrid(k+1,i)+zgrid(k,i))
+              rad   = sqrt((xloc/bhrad)**2+(yloc/bhrad)**2+((ztemp-zcent)/bvrad)**2)
+              if( rad .lt. 1.0)  then
+       !        call random_number(rand)
+       !        thi(k,i) = thi(k,i) + max(bptpert*cos(.5*pii*rad)**2 + rand_amp*(2.0*rand-1.0), 0.0)
+                thi(k,i) = thi(k,i) + bptpert*cos(.5*pii*rad)**2 
+              end if
+              t (k,i) = thi(k,i)*(1.+1.61*scalars(index_qv,k,i))
+            end do
+
+          end do
+
+        end do ! multi bubble initialization
+
+      else
+
+        do i=1, nCells
+          xloc = xCell(i) - xmid
+          if (test_case == 4) then 
+            yloc = 0.                            !squall line setting
+          else if (test_case == 5) then
+            yloc = yCell(i) - ymid !supercell setting
           end if
-           t (k,i) = thi(k,i)*(1.+1.61*scalars(index_qv,k,i))
+
+          do k = 1,nz1
+            ztemp = .5*(zgrid(k+1,i)+zgrid(k,i))
+            rad   = sqrt((xloc/bhrad)**2+(yloc/bhrad)**2+((ztemp-zcent)/bvrad)**2)
+            if (rad .lt. 1)  then
+              thi(k,i) = thi(k,i) + bptpert*cos(.5*pii*rad)**2
+            end if
+            t (k,i) = thi(k,i)*(1.+1.61*scalars(index_qv,k,i))
+          end do
         end do
-      end do
+
+      end if  ! bubble init 
 
       do itr=1,30
 
@@ -1840,6 +1969,7 @@ module init_atm_cases
         end do
         pitop = pitop - .5*dzw(nz1)*gravity*(1.+scalars(index_qv,nz1,1))/(cp*t(nz1,1)*zz(nz1,1))
         ptop = p0*pitop**(1./rcp)
+
         call mpas_log_write('ptop  = $r $r', realArgs=(/0.01_RKIND*ptop, 0.01_RKIND*ptopb/))
 
         call mpas_dmpar_bcast_real(dminfo, ptop)
@@ -1879,13 +2009,13 @@ module init_atm_cases
          qv_init(k) = scalars(index_qv,k,1)
       end do
 
-      t_init_1d(:) = t(:,1)
       call mpas_dmpar_bcast_reals(dminfo, nz1, t_init_1d)
       call mpas_dmpar_bcast_reals(dminfo, nz1, qv_init)
 
       do i=1,nCells
          do k=1,nz1
-            t_init(k,i) = t_init_1d(k)
+            t_init_1d(k) = tsnd(k)
+            t_init(k,i) = tsnd(k)
             rho_zz(k,i) = rb(k,i)+rr(k,i)
          end do
       end do
@@ -3578,7 +3708,23 @@ module init_atm_cases
                             loninc = 360.0_RKIND / real(field % nx,RKIND), &
                             lat1 = real(field % startlat,RKIND), &
                             lon1 = real(field % startlon,RKIND))
-!                            nxmax = nint(360.0 / field % deltalon), &
+            else if (field % iproj == PROJ_LC) then
+               call map_set(PROJ_LC, proj, &
+                            truelat1 = real(field % truelat1, kind=RKIND), &
+                            truelat2 = real(field % truelat2, kind=RKIND), &
+                            lat1 = real(field % startlat, kind=RKIND), &
+                            lon1 = real(field % startlon, kind=RKIND), &
+                            knowni = 1.0_RKIND, &
+                            knownj = 1.0_RKIND, &
+                            stdlon = real(field % xlonc, kind=RKIND), &
+                            dx = real(field % dx, kind=RKIND))
+            else
+               call mpas_log_write('********************************************************************************', &
+                                   messageType=MPAS_LOG_ERR)
+               call mpas_log_write('Unhandled projection for first-guess data in init_atm_case_gfs', &
+                                   messageType=MPAS_LOG_ERR)
+               call mpas_log_write('********************************************************************************', &
+                                   messageType=MPAS_LOG_CRIT)
             end if
 
 
@@ -4402,6 +4548,13 @@ call mpas_log_write('Done with soil consistency check')
                                knownj = real(field % ny / 2.0,RKIND), &
                                lat1 = real(field % startlat,RKIND), &
                                lon1 = real(field % startlon,RKIND))
+               else
+                  call mpas_log_write('********************************************************************************', &
+                                      messageType=MPAS_LOG_ERR)
+                  call mpas_log_write('Unhandled projection for fractional sea ice data in init_atm_case_gfs', &
+                                      messageType=MPAS_LOG_ERR)
+                  call mpas_log_write('********************************************************************************', &
+                                      messageType=MPAS_LOG_CRIT)
                end if
 
                if (trim(field % field) == 'SEAICE') then
@@ -4498,7 +4651,12 @@ call mpas_log_write('Done with soil consistency check')
                                lat1 = real(field % startlat,RKIND), &
                                lon1 = real(field % startlon,RKIND))
                else
-                  call mpas_log_write('We were expecting OMLD field to be on a lat-lon projection...', messageType=MPAS_LOG_CRIT)
+                  call mpas_log_write('********************************************************************************', &
+                                      messageType=MPAS_LOG_ERR)
+                  call mpas_log_write('Unhandled projection for ocean mixed-layer depth (OMLD) data in init_atm_case_gfs', &
+                                      messageType=MPAS_LOG_ERR)
+                  call mpas_log_write('********************************************************************************', &
+                                      messageType=MPAS_LOG_CRIT)
                end if
 
                if (index(field % field, 'OMLD') /= 0) then
@@ -5008,7 +5166,7 @@ call mpas_log_write('Done with soil consistency check')
 
       use mpas_dmpar, only : mpas_dmpar_min_real, mpas_dmpar_max_real
       use init_atm_read_met, only : met_data, read_met_init, read_met_close, read_next_met_field
-      use init_atm_llxy, only : proj_info, map_init, map_set, latlon_to_ij, PROJ_LATLON, PROJ_GAUSS, DEG_PER_RAD
+      use init_atm_llxy, only : proj_info, map_init, map_set, latlon_to_ij, PROJ_LATLON, PROJ_GAUSS, PROJ_LC, DEG_PER_RAD
       use init_atm_hinterp, only : interp_sequence, FOUR_POINT, SIXTEEN_POINT, W_AVERAGE4, SEARCH
       use mpas_hash, only : hashtable, mpas_hash_init, mpas_hash_destroy, mpas_hash_search, mpas_hash_size, mpas_hash_insert
 
@@ -5314,6 +5472,23 @@ call mpas_log_write('Done with soil consistency check')
                             loninc = 360.0_RKIND / real(field % nx,RKIND), &
                             lat1 = real(field % startlat,RKIND), &
                             lon1 = real(field % startlon,RKIND))
+            else if (field % iproj == PROJ_LC) then
+               call map_set(PROJ_LC, proj, &
+                            truelat1 = real(field % truelat1, kind=RKIND), &
+                            truelat2 = real(field % truelat2, kind=RKIND), &
+                            lat1 = real(field % startlat, kind=RKIND), &
+                            lon1 = real(field % startlon, kind=RKIND), &
+                            knowni = 1.0_RKIND, &
+                            knownj = 1.0_RKIND, &
+                            stdlon = real(field % xlonc, kind=RKIND), &
+                            dx = real(field % dx, kind=RKIND))
+            else
+               call mpas_log_write('********************************************************************************', &
+                                   messageType=MPAS_LOG_ERR)
+               call mpas_log_write('Unhandled projection for LBC data in init_atm_case_lbc', &
+                                   messageType=MPAS_LOG_ERR)
+               call mpas_log_write('********************************************************************************', &
+                                   messageType=MPAS_LOG_CRIT)
             end if
 
 
@@ -6778,7 +6953,7 @@ call mpas_log_write('Done with soil consistency check')
    subroutine blend_bdy_terrain(config_met_prefix, config_start_time, nCells, latCell, lonCell, bdyMaskCell, ter, dryrun, ierr)
 
       use init_atm_read_met, only : read_met_init, read_met_close, read_next_met_field, met_data
-      use init_atm_llxy, only : map_init, map_set, proj_info, latlon_to_ij, PROJ_LATLON, PROJ_GAUSS, DEG_PER_RAD
+      use init_atm_llxy, only : map_init, map_set, proj_info, latlon_to_ij, PROJ_LATLON, PROJ_GAUSS, PROJ_LC, DEG_PER_RAD
       use init_atm_hinterp, only : interp_sequence, FOUR_POINT
 
       implicit none
@@ -6856,6 +7031,25 @@ call mpas_log_write('Done with soil consistency check')
                                loninc = 360.0_RKIND / real(field % nx,RKIND), &
                                lat1 = real(field % startlat,RKIND), &
                                lon1 = real(field % startlon,RKIND))
+               else if (field % iproj == PROJ_LC) then
+                  call map_set(PROJ_LC, proj, &
+                               truelat1 = real(field % truelat1, kind=RKIND), &
+                               truelat2 = real(field % truelat2, kind=RKIND), &
+                               lat1 = real(field % startlat, kind=RKIND), &
+                               lon1 = real(field % startlon, kind=RKIND), &
+                               knowni = 1.0_RKIND, &
+                               knownj = 1.0_RKIND, &
+                               stdlon = real(field % xlonc, kind=RKIND), &
+                               dx = real(field % dx, kind=RKIND))
+               else
+                  call mpas_log_write('********************************************************************************', &
+                                      messageType=MPAS_LOG_ERR)
+                  call mpas_log_write('Unhandled projection for first-guess terrain data in blend_bdy_terrain', &
+                                      messageType=MPAS_LOG_ERR)
+                  call mpas_log_write('********************************************************************************', &
+                                      messageType=MPAS_LOG_ERR)
+                  ierr = 1
+                  return
                end if
 
                !
@@ -7035,7 +7229,6 @@ call mpas_log_write('Done with soil consistency check')
    !-----------------------------------------------------------------------
    function read_text_array(dminfo, filename, xarray) result(ierr)
 
-      use mpas_io_units, only : mpas_new_unit, mpas_release_unit
       use mpas_log, only : mpas_log_write
       use mpas_derived_types, only : MPAS_LOG_ERR
 
@@ -7125,6 +7318,162 @@ call mpas_log_write('Done with soil consistency check')
       ierr = 0
 
    end function read_text_array
+
+!---------------------------------------------------------------------
+
+    subroutine get_sounding( ze, psfc, thsfc, qvsfc, th, qv, u, v, nz, debug )
+
+      implicit none
+
+      logical, intent(in) :: debug
+      integer, intent(in) :: nz
+      real, intent(inout) :: psfc, thsfc, qvsfc
+      real, intent(inout) :: ze(nz), th(nz-1), u(nz-1), v(nz-1), qv(nz-1)
+
+      integer nmax
+      parameter(nmax=1000)
+
+! Local data
+! input sounding data
+
+      real p_surf, th_surf, qv_surf
+      real zsnd(nmax), thsnd(nmax), qvsnd(nmax), usnd(nmax), vsnd(nmax)
+      real zc(nmax)
+
+      integer k, kk, nl, kdn, kup
+      real interp_frac
+
+!  first, read the sounding
+
+      call read_sounding( psfc, thsfc, qvsfc, zsnd, thsnd, qvsnd, usnd, vsnd, nmax, nl, debug )
+
+      if (debug) then
+        call mpas_log_write('Number of levels from input sounding file: $i', intArgs=(/nl/))
+      end if
+
+!  get cell centered heights for interp
+
+      do k=1,nz-1
+        zc(k) = 0.5*(ze(k)+ze(k+1))
+      enddo
+
+!  convert sounding qv(g/kg) to qv(g/g)
+
+      qvsfc = 0.001*qvsfc
+      psfc  = 100. * psfc
+
+      do k=1,nl
+        qvsnd(k) = 0.001*qvsnd(k)
+      enddo
+
+      do k=1,nz-1
+
+         kk = 1
+
+         do while( zsnd(kk) .lt. zc(k) )
+           kk = kk+1
+         enddo
+
+         if ( kk == 1 ) then
+
+           interp_frac = zc(k) / zsnd(1)
+
+           th(k) = thsfc + (thsnd(1)-thsfc)*interp_frac  ! use surface values to interp below sounding
+           qv(k) = qvsfc + (qvsnd(1)-qvsfc)*interp_frac  ! use surface values to interp below sounding
+
+           u(k) = usnd(1) * interp_frac    ! winds goto zero at ground
+           v(k) = vsnd(1) * interp_frac    ! winds goto zero at ground
+
+         else
+
+           kdn = kk-1
+           kup = kk
+
+           interp_frac = (   zc(k)     - zsnd(kdn) )   &
+                       / ( zsnd( kup ) - zsnd(kdn) )
+
+           u(k) = usnd(kdn) + ( usnd(kup)- usnd(kdn))*interp_frac
+           v(k) = vsnd(kdn) + ( vsnd(kup)- vsnd(kdn))*interp_frac
+
+           th(k) = thsnd(kdn) + (thsnd(kup)-thsnd(kdn))*interp_frac
+           qv(k) = qvsnd(kdn) + (qvsnd(kup)-qvsnd(kdn))*interp_frac
+
+         end if
+
+      end do
+
+      if(debug) then
+         call mpas_log_write('Interpolated Sounding GET_SOUNDING')
+         call mpas_log_write('---------------------------------')
+         call mpas_log_write('  k  height(m)  theta (K)   qv(g/kg)   u(m/s)   v(m/s) ')
+         call mpas_log_write('-------------------------------------------------------')
+         do k=1,nz-1
+           call mpas_log_write('$i $r $r $r $r $r', intArgs=(/k/), realArgs=(/zc(k), th(k),qv(k), u(k), v(k)/))
+         enddo
+
+      end if
+
+    end subroutine get_sounding
+
+!-------------------------------------------------------
+
+    subroutine read_sounding( ps,ts,qvs,h,th,qv,u,v,nmax,nlevels,debug )
+
+      implicit none
+
+      integer :: nmax,nlevels
+      real    :: ps, ts, qvs
+      real, dimension(nmax) :: h, th, qv, u, v
+      logical end_of_file
+      logical debug
+
+      integer k, iunit
+
+      call mpas_new_unit(iunit)
+
+      open(unit=iunit, file='input_sounding',form='formatted',status='old')
+
+      rewind(iunit)
+
+      read(iunit,*) ps, ts, qvs
+
+      if(debug) then
+        call mpas_log_write('Input sounding surface parameters ')
+        call mpas_log_write('----------------------------------')
+        call mpas_log_write('Surface pressure in mb:         $r ', realArgs=(/ps/))
+        call mpas_log_write('Surface pot. temp in K:         $r ', realArgs=(/ts/))
+        call mpas_log_write('Surface mixing ratio in (g/kg): $r ', realArgs=(/qvs/))
+      end if
+
+      end_of_file = .false.
+
+      if( debug ) then
+         call mpas_log_write('Raw Input Sounding from READ_SOUNDING')
+         call mpas_log_write('---------------------------------')
+         call mpas_log_write('  k  height(m)  theta (K)   qv(g/kg)   u(m/s)   v(m/s) ')
+      end if
+
+      k = 0
+
+      do while (.not. end_of_file)
+
+        read(iunit,*,end=100) h(k+1), th(k+1), qv(k+1), u(k+1), v(k+1)
+        k = k+1
+
+        if( debug ) then
+          call mpas_log_write('$i $r $r $r $r $r', intArgs=(/k/), realArgs=(/h(k), th(k),qv(k), u(k), v(k)/))
+        end if
+
+        go to 110
+ 100    end_of_file = .true.
+ 110    continue
+      enddo
+
+      nlevels = k
+
+      call mpas_release_unit(iunit)
+
+    end subroutine read_sounding
 
 
 end module init_atm_cases
