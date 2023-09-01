@@ -1399,7 +1399,7 @@ module init_atm_cases
       real (kind=RKIND) :: cof1, cof2
       real (kind=RKIND), pointer :: cf1, cf2, cf3
       real (kind=RKIND) :: um, us, zts, pitop, pibtop, ptopb, ptop, rcp, rcv, p0
-      real (kind=RKIND) :: radx, radz, xmid, delt, xloc, rad, yloc, ymid, ymax, ymin, a_scale
+      real (kind=RKIND) :: radx, radz, xmid,xmax,xmin, delt, xloc, rad, yloc, ymid, ymax, ymin, a_scale
       real (kind=RKIND) :: pres, temp, es, qvs
 
       real (kind=RKIND), dimension(:), pointer :: xCell, yCell, zCell
@@ -1412,9 +1412,11 @@ module init_atm_cases
       real (kind=RKIND), pointer :: sphere_radius
 
       real (kind=RKIND), dimension(:,:), pointer :: t_init, w, rw, v, rho, theta
-      real (kind=RKIND), dimension(:), pointer :: u_init, qv_init, angleEdge, fEdge, fVertex
+      real (kind=RKIND), dimension(:), pointer :: u_init, v_init, qv_init, angleEdge, fEdge, fVertex
 
-      character (len=StrKIND), pointer :: config_interface_projection
+      character (len=StrKIND), pointer :: config_interface_projection, config_input_sounding_name
+      integer, pointer :: config_multi_pert, config_sounding_type, config_read_z_grid
+      logical, pointer :: config_use_sounding_z_levels
 
 ! BEGIN LJW multibubble parameters (should be actually in namelist)
 
@@ -1474,6 +1476,13 @@ module init_atm_cases
       call mpas_pool_get_config(mesh, 'on_a_sphere', on_a_sphere)
       call mpas_pool_get_config(mesh, 'sphere_radius', sphere_radius)
       call mpas_pool_get_config(configs, 'config_interface_projection', config_interface_projection)
+      call mpas_pool_get_config(configs, 'config_multi_pert', config_multi_pert)
+      call mpas_pool_get_config(configs, 'config_input_sounding_name', config_input_sounding_name)
+      call mpas_pool_get_config(configs, 'config_sounding_type', config_sounding_type)
+      call mpas_pool_get_config(configs, 'config_read_z_grid', config_read_z_grid)
+      call mpas_pool_get_config(configs, 'config_use_sounding_z_levels',config_use_sounding_z_levels)
+      
+      multi_pert = config_multi_pert
 
       !
       ! Scale all distances
@@ -1523,6 +1532,7 @@ module init_atm_cases
       call mpas_pool_get_array(mesh, 'dss', dss)
       call mpas_pool_get_array(mesh, 't_init', t_init)
       call mpas_pool_get_array(mesh, 'u_init', u_init)
+      call mpas_pool_get_array(mesh, 'v_init', v_init)
       call mpas_pool_get_array(mesh, 'qv_init', qv_init)
       call mpas_pool_get_array(mesh, 'angleEdge', angleEdge)
       call mpas_pool_get_array(mesh, 'fEdge', fEdge)
@@ -1584,7 +1594,7 @@ module init_atm_cases
 
 ! LJW_HACK
 
-      if ( multi_pert .eq. 0 ) then
+      if ( config_read_z_grid == 0 .and. .not. config_use_sounding_z_levels ) then
 
 !       parameters for internal hybrid coordinate and vertical stretching
 
@@ -1622,7 +1632,14 @@ module init_atm_cases
       else ! read in from input_grid_z - need to harden this code to check for wrong number of levels
 
           call mpas_new_unit(iunit)
-          open(unit=iunit, file='input_grid_z', form='formatted', status='old', iostat=ierr)
+          IF ( .not. config_use_sounding_z_levels ) THEN
+            open(unit=iunit, file='input_grid_z', form='formatted', status='old', iostat=ierr)
+          ELSE
+            open(unit=iunit, file=config_input_sounding_name, form='formatted', status='old', iostat=ierr)
+            ! dummy read first line
+            read(unit=iunit, fmt=*, iostat=ierr) zw(1)
+          ENDIF
+          
           do k=1,nz
             read(unit=iunit, fmt=*, iostat=ierr) zw(k)
             ah(k) = 1.
@@ -1707,7 +1724,8 @@ module init_atm_cases
 
 !     call mpas_log_write(' rgas, cp, gravity = $r $r $r', realArgs=(/rgas,cp, gravity/))
 
-      if( (test_case == 4) .and. (multi_pert .eq. 0) ) then  ! internal sounding being generated, compute shear
+!      if( (test_case == 4 .or. test_case == 5) .and. (multi_pert .eq. 0) ) then  ! internal sounding being generated, compute shear
+      IF ( config_sounding_type == 1 ) THEN
 
         if ( test_case == 4) then ! squall line parameters
           um  = case4_um
@@ -1754,15 +1772,19 @@ module init_atm_cases
                 else
                   u(k,i) = um
                 end if
-                if(i == 1 ) u_init(k) = u(k,i) - us
+                if (i == 1 ) then
+                  u_init(k) = u(k,i) - us
+                  v_init(k) = 0.
+                endif
                 u(k,i) = cos(angleEdge(i)) * (u(k,i) - us)
               end do
             end if
          end do
 
-       else ! read in soundng and interpolate it to the vertical grid
+       else ! read in sounding and interpolate it to the vertical grid
 
-         call get_sounding( zw, psfc, thsfc, qvsfc, tsnd, qvsnd, usnd, vsnd, nz, debug )
+         call get_sounding( zw, psfc, thsfc, qvsfc, tsnd, qvsnd, usnd, vsnd, nz, debug, &
+                            config_input_sounding_name )
 
          do i=1,nCells
             do k=1,nz1
@@ -1785,9 +1807,15 @@ module init_atm_cases
 
             if(cell1 <= nCellsSolve .or. cell2 <= nCellsSolve) then
                do k=1,nz1
-                  if (i==2) u_init(k) = usnd(k)
-                  u(k,i) = cos(angleEdge(i)) * usnd(k)
+                  if (i==2) then
+                    u_init(k) = usnd(k)
+                    v_init(k) = vsnd(k)
+                  endif
+                  u(k,i) = cos(angleEdge(i)) * usnd(k) + sin(angleEdge(i)) * vsnd(k)
                !  u(k,i) = sin(angleEdge(i)) * usnd(k)
+! code from lbc subroutine:
+!            u_fg(k,iEdge) = cos(angleEdge(iEdge)) * u_fg(k,iEdge) &
+!                          + sin(angleEdge(iEdge)) * v_fg(k,iEdge)
                end do
             end if
 
@@ -1796,6 +1824,7 @@ module init_atm_cases
        end if
 
        call mpas_dmpar_bcast_reals(dminfo, nz1, u_init)
+       call mpas_dmpar_bcast_reals(dminfo, nz1, v_init)
 
 !
 !    for reference sounding 
@@ -1844,7 +1873,7 @@ module init_atm_cases
      ! update water vapor mixing ratio from humidity profile
      !
 
-      if( (test_case == 4) .and. (multi_pert .eq. 0) ) then  ! internal sounding being generated, compute qv
+      if( config_sounding_type == 1 ) then  ! internal sounding being generated, compute qv
 
         do i= 1,nCells
           do k=1,nz1
@@ -1901,11 +1930,16 @@ module init_atm_cases
 
       else if (test_case == 5) then     ! supercell parameters
 
-         call mpas_dmpar_max_real(dminfo, maxval(xCell(:)), xmid)
+         call mpas_dmpar_max_real(dminfo, maxval(xCell(:)), xmax)
+         call mpas_dmpar_min_real(dminfo, minval(xCell(:)), xmin)
          call mpas_dmpar_max_real(dminfo, maxval(yCell(:)), ymax)
-         call mpas_dmpar_min_real(dminfo, maxval(yCell(:)), ymin)
-         xmid = xmid * 0.5
-         ymid = 0.5 * (ymax - ymin)
+         call mpas_dmpar_min_real(dminfo, minval(yCell(:)), ymin)
+!         xmid = xmid * 0.5
+!         ymid = 0.5 * (ymax - ymin)
+         xmid = xmax * 0.25
+         ymid = 0.6 * (ymax - ymin)
+         write(0,*) 'xmid,ymid = ',xmid,ymid
+         write(0,*) 'xmin,xmax,ymin,ymax = ',xmin,xmax,ymin,ymax
 
       end if
 
@@ -7321,7 +7355,7 @@ call mpas_log_write('Done with soil consistency check')
 
 !---------------------------------------------------------------------
 
-    subroutine get_sounding( ze, psfc, thsfc, qvsfc, th, qv, u, v, nz, debug )
+    subroutine get_sounding( ze, psfc, thsfc, qvsfc, th, qv, u, v, nz, debug, config_input_sounding_name )
 
       implicit none
 
@@ -7329,6 +7363,7 @@ call mpas_log_write('Done with soil consistency check')
       integer, intent(in) :: nz
       real, intent(inout) :: psfc, thsfc, qvsfc
       real, intent(inout) :: ze(nz), th(nz-1), u(nz-1), v(nz-1), qv(nz-1)
+      character(len=*) :: config_input_sounding_name
 
       integer nmax
       parameter(nmax=1000)
@@ -7345,7 +7380,8 @@ call mpas_log_write('Done with soil consistency check')
 
 !  first, read the sounding
 
-      call read_sounding( psfc, thsfc, qvsfc, zsnd, thsnd, qvsnd, usnd, vsnd, nmax, nl, debug )
+      call read_sounding( psfc, thsfc, qvsfc, zsnd, thsnd, qvsnd, usnd, vsnd, nmax, nl, debug, &
+                          config_input_sounding_name )
 
       if (debug) then
         call mpas_log_write('Number of levels from input sounding file: $i', intArgs=(/nl/))
@@ -7417,7 +7453,7 @@ call mpas_log_write('Done with soil consistency check')
 
 !-------------------------------------------------------
 
-    subroutine read_sounding( ps,ts,qvs,h,th,qv,u,v,nmax,nlevels,debug )
+    subroutine read_sounding( ps,ts,qvs,h,th,qv,u,v,nmax,nlevels,debug, config_input_sounding_name )
 
       implicit none
 
@@ -7426,12 +7462,13 @@ call mpas_log_write('Done with soil consistency check')
       real, dimension(nmax) :: h, th, qv, u, v
       logical end_of_file
       logical debug
+      character(len=*) :: config_input_sounding_name
 
       integer k, iunit
 
       call mpas_new_unit(iunit)
 
-      open(unit=iunit, file='input_sounding',form='formatted',status='old')
+      open(unit=iunit, file=config_input_sounding_name,form='formatted',status='old')
 
       rewind(iunit)
 
