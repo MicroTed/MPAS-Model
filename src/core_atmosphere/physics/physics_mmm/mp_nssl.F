@@ -34,7 +34,7 @@ module mp_nssl
                               nssl_cccn, nssl_alphah, nssl_alphahl, &
                               nssl_alphar, nssl_ehw0, nssl_ehlw0,   &
                               nssl_ccn_on, nssl_hail_on, nssl_invertccn, &
-                              nssl_3moment, nssl_ccn_is_ccna ) 
+                              nssl_3moment, nssl_ccn_is_ccna, nssl_1moment )
                               
 
         use module_mp_nssl_2mom, only: nssl_2mom_init, nssl_2mom_init_const
@@ -58,7 +58,7 @@ module mp_nssl
          real(kind_phys),           intent(in)    :: nssl_cccn, nssl_alphah, nssl_alphahl
          real(kind_phys),           intent(in)    :: nssl_alphar, nssl_ehw0, nssl_ehlw0
          logical,                   intent(in)    :: nssl_ccn_on, nssl_hail_on, nssl_invertccn, &
-                                                     nssl_3moment
+                                                     nssl_3moment, nssl_1moment
 !         integer,                   intent(in)    :: nssl_theta_or_temp
 
          ! Local variables: dimensions used in nssl_init
@@ -134,7 +134,9 @@ module mp_nssl
            ihailv = -1
          ENDIF
          
-         IF ( nssl_3moment ) THEN
+         IF ( nssl_1moment ) THEN
+           ipc = 0
+         ELSEIF ( nssl_3moment ) THEN
            ipc = 8
          ELSE
            ipc = 5

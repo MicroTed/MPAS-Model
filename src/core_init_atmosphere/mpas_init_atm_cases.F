@@ -1399,7 +1399,7 @@ module init_atm_cases
       real (kind=RKIND) :: cof1, cof2
       real (kind=RKIND), pointer :: cf1, cf2, cf3
       real (kind=RKIND) :: um, us, zts, pitop, pibtop, ptopb, ptop, rcp, rcv, p0
-      real (kind=RKIND) :: radx, radz, xmid,xmax,xmin, delt, xloc, rad, yloc, ymid, ymax, ymin, a_scale
+      real (kind=RKIND) :: radx, radz, xmid,xmax,xmin, xloc, rad, yloc, ymid, ymax, ymin, a_scale
       real (kind=RKIND) :: pres, temp, es, qvs
 
       real (kind=RKIND), dimension(:), pointer :: xCell, yCell, zCell
@@ -1417,6 +1417,7 @@ module init_atm_cases
       character (len=StrKIND), pointer :: config_interface_projection, config_input_sounding_name
       integer, pointer :: config_multi_pert, config_sounding_type, config_read_z_grid
       logical, pointer :: config_use_sounding_z_levels
+      real,    pointer :: config_xbubloc, config_ybubloc, delt, umv, vmv
 
 ! BEGIN LJW multibubble parameters (should be actually in namelist)
 
@@ -1426,7 +1427,7 @@ module init_atm_cases
       real (kind=RKIND) :: zcent        =   1500.0   ! height of center of bubble above ground (m)
       real (kind=RKIND) :: bhrad        =  10000.0   ! horizontal radius of bubble (m)
       real (kind=RKIND) :: bvrad        =   1500.0   ! vertical radius of bubble (m)
-      real (kind=RKIND) :: bptpert      =      3.0   ! max potential temp perturbation (K)
+      real (kind=RKIND) :: bptpert  !    =     delt   ! max potential temp perturbation (K)
       real (kind=RKIND) :: rand_amp     =      0.0   ! random number perturbation max amplitude
       real (kind=RKIND) :: rand
       integer           :: nb
@@ -1481,8 +1482,14 @@ module init_atm_cases
       call mpas_pool_get_config(configs, 'config_sounding_type', config_sounding_type)
       call mpas_pool_get_config(configs, 'config_read_z_grid', config_read_z_grid)
       call mpas_pool_get_config(configs, 'config_use_sounding_z_levels',config_use_sounding_z_levels)
+      call mpas_pool_get_config(configs, 'config_xbubloc',config_xbubloc)
+      call mpas_pool_get_config(configs, 'config_ybubloc',config_ybubloc)
+      call mpas_pool_get_config(configs, 'config_delt',delt)
+      call mpas_pool_get_config(configs, 'config_umv',umv)
+      call mpas_pool_get_config(configs, 'config_vmv',vmv)
       
       multi_pert = config_multi_pert
+      bptpert    = delt 
 
       !
       ! Scale all distances
@@ -1768,12 +1775,12 @@ module init_atm_cases
                 ztemp = .25*( zgrid(k,cell1)+zgrid(k+1,cell1)  &
                              +zgrid(k,cell2)+zgrid(k+1,cell2) )
                 if(ztemp.lt.zts)  then
-                  u(k,i) = um*ztemp/zts
+                  u(k,i) = um*ztemp/zts - umv
                 else
-                  u(k,i) = um
+                  u(k,i) = um - umv
                 end if
                 if (i == 1 ) then
-                  u_init(k) = u(k,i) - us
+                  u_init(k) = u(k,i) - us - umv
                   v_init(k) = 0.
                 endif
                 u(k,i) = cos(angleEdge(i)) * (u(k,i) - us)
@@ -1799,6 +1806,11 @@ module init_atm_cases
                scalars(index_qv,k,i) = qvsnd(k)
 
             end do
+         end do
+
+         do k=1,nz1
+            usnd(k) = usnd(k) - umv
+            vsnd(k) = vsnd(k) - vmv
          end do
 
          do i=2, nEdges
@@ -1936,8 +1948,10 @@ module init_atm_cases
          call mpas_dmpar_min_real(dminfo, minval(yCell(:)), ymin)
 !         xmid = xmid * 0.5
 !         ymid = 0.5 * (ymax - ymin)
-         xmid = xmax * 0.25
-         ymid = 0.6 * (ymax - ymin)
+!         xmid = xmax * 0.25
+!         ymid = 0.6 * (ymax - ymin)
+         xmid = xmax * config_xbubloc
+         ymid = config_ybubloc * (ymax - ymin)
          write(0,*) 'xmid,ymid = ',xmid,ymid
          write(0,*) 'xmin,xmax,ymin,ymax = ',xmin,xmax,ymin,ymax
 

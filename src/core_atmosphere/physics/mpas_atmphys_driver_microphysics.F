@@ -317,7 +317,7 @@
 
 !local pointer:
  character(len=StrKIND),pointer:: microp_scheme
- logical,pointer:: config_nssl_3moment
+ logical,pointer:: config_nssl_3moment,config_nssl_1moment
  logical,pointer:: config_nssl_hail_on, config_nssl_ccn_on
  real,pointer:: config_nssl_cccn, config_nssl_alphah, config_nssl_alphahl
  real,pointer:: config_nssl_alphar, config_nssl_ehw0, config_nssl_ehlw0
@@ -336,6 +336,7 @@
 
  call mpas_pool_get_config(configs,'config_microp_scheme',microp_scheme)
  call mpas_pool_get_config(configs,'config_nssl_3moment',config_nssl_3moment)
+ call mpas_pool_get_config(configs,'config_nssl_1moment',config_nssl_1moment)
  call mpas_pool_get_config(configs,'config_nssl_hail_on',config_nssl_hail_on)
  call mpas_pool_get_config(configs,'config_nssl_ccn_on',config_nssl_ccn_on)
  call mpas_pool_get_config(configs,'config_nssl_cccn',config_nssl_cccn)
@@ -365,7 +366,7 @@
                               nssl_cccn=config_nssl_cccn, nssl_alphah=config_nssl_alphah, nssl_alphahl=config_nssl_alphahl, &
                               nssl_alphar=config_nssl_alphar, nssl_ehw0=config_nssl_ehw0, nssl_ehlw0=config_nssl_ehlw0,   &
                               nssl_ccn_on=config_nssl_ccn_on, nssl_hail_on=config_nssl_hail_on, nssl_invertccn=.false., &
-                              nssl_3moment=config_nssl_3moment, nssl_ccn_is_ccna=i )
+                              nssl_3moment=config_nssl_3moment, nssl_ccn_is_ccna=i, nssl_1moment=config_nssl_1moment )
      
      case default
 

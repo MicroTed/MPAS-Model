@@ -124,6 +124,31 @@
                      description="true to read z levels from sounding file (for cases 4 and 5 only)"
                      possible_values="true or false"/>
 
+                <nml_option name="config_xbubloc" type="real" default_value="0.5"
+                     units="-"
+                     description="factor in location of single thermal bubble as in xcent = xbubloc*(xmax-xmin)"
+                     possible_values="0 $\leq$ config_xbubloc $\leq$ 1"/>
+
+                <nml_option name="config_ybubloc" type="real" default_value="0.5"
+                     units="-"
+                     description="factor in location of single thermal bubble as in ycent = ybubloc*(ymax-ymin)"
+                     possible_values="0 $\leq$ config_ybubloc $\leq$ 1"/>
+
+                <nml_option name="config_delt" type="real" default_value="3.0"
+                     units="-"
+                     description="delta-t for thermal bubble"
+                     possible_values="real number"/>
+
+                <nml_option name="config_umv" type="real" default_value="0.0"
+                     units="-"
+                     description="grid motion in U direction"
+                     possible_values="real number"/>
+
+                <nml_option name="config_vmv" type="real" default_value="0.0"
+                     units="-"
+                     description="grid motion in V direction"
+                     possible_values="real number"/>
+
 
         </nml_record>
 
