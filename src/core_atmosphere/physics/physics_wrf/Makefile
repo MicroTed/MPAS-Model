@@ -31,6 +31,7 @@ OBJS = \
 	module_mp_thompson_aerosols.o  \
 	module_mp_thompson_cldfra3.o   \
 	module_mp_wsm6.o               \
+	mp_nssl.o                      \
 	module_ra_cam.o                \
 	module_ra_cam_support.o        \
 	module_ra_rrtmg_lw.o           \
@@ -126,6 +127,8 @@ module_sf_noah_seaice_drv.o: \
 
 module_sf_noah_seaice.o: \
 	module_sf_noahlsm.o
+
+mp_nssl.o: module_mp_nssl_2mom.o
 
 module_cu_gf_mpas.o: \
         module_cu_gf_deep.o \

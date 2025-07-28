@@ -798,14 +798,14 @@ CONTAINS
          enddo
 !
          do i=its,ite
-           if(raincv (i,j) > 0.0 .and. htop(i,j) > 0) then
-             factor(i) = -2./max(1000., zo(i,htop(i,j)) - zfrz(i))
+           if(raincv (i,j) > 0.0 .and. nint(htop(i,j)) > 0) then
+             factor(i) = -2./max(1000., zo(i,nint(htop(i,j))) - zfrz(i))
            endif
          enddo
 
          do k=kts,kte
            do i=its,ite
-             if(raincv(i,j) > 0. .and. k <= htop(i,j)) then
+             if(raincv(i,j) > 0. .and. k <= nint(htop(i,j))) then
                fctz = 0.0
                delz = zo(i,k) - zfrz(i)
                if(delz <0.0) then

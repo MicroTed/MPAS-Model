@@ -412,7 +412,10 @@
 		<package name="tempo_hailaware_in" description="variables for TEMPO hail-aware microphysics."/>
                 <package name="mp_wsm6_in" description="parameterization of WSM6 cloud microphysics."/>
                 <package name="mp_nssl2m_in" description="parameterization of NSSL 2-moment microphysics."/>
+                <package name="nssl_hail_in" description="variables for hail in NSSL microphysics."/>
+                <package name="nssl_ccn_in" description="variables for CCN in NSSL microphysics."/>
                 <package name="nssl3m_in" description="variables for NSSL 3-moment microphysics."/>
+                <package name="nssl3m_hail_in" description="variables for NSSL 3-moment hail microphysics."/>
                 <package name="cu_grell_freitas_in" description="parameterization of Grell-Freitas convection."/>
                 <package name="cu_kain_fritsch_in" description="parameterization of Kain-Fritsch convection."/>
                 <package name="cu_ntiedtke_in" description="parameterization of Tiedtke convection."/>
@@ -665,6 +668,7 @@
 			<var name="max_hail_diameter_sfc"/>
 			<var name="max_hail_diameter_sfc_acc"/>
 			<var name="max_hail_diameter_column"/>
+			<var name="max_hail_diameter_column_acc"/>
 			<var name="refl10cm_max"/>
 			<var name="i_rainnc"/>
 			<var name="rainncv"/>
@@ -1131,6 +1135,7 @@
 			<var name="max_hail_diameter_sfc"/>
 			<var name="max_hail_diameter_sfc_acc"/>
 			<var name="max_hail_diameter_column"/>
+			<var name="max_hail_diameter_column_acc"/>
 			<var name="refl10cm_max"/>
 			<var name="refl10cm_1km"/>
 			<var name="refl10cm_1km_max"/>
@@ -1315,9 +1320,10 @@
 			<var name="surface_pressure"/>
 #ifdef DO_PHYSICS
 			<var name="cldfrac"/>
-			<var name="re_cloud" packages="mp_thompson_in;mp_wsm6_in;mp_tempo_in"/>
-			<var name="re_ice" packages="mp_thompson_in;mp_wsm6_in;mp_tempo_in"/>
-			<var name="re_snow" packages="mp_thompson_in;mp_wsm6_in;mp_tempo_in"/>
+			<var name="re_cloud" packages="mp_thompson_in;mp_nssl2m_in;mp_wsm6_in;mp_tempo_in"/>
+			<var name="re_ice" packages="mp_thompson_in;mp_nssl2m_in;mp_wsm6_in;mp_tempo_in"/>
+			<var name="re_snow" packages="mp_thompson_in;mp_nssl2m_in;mp_wsm6_in;mp_tempo_in"/>
+			<var name="refl10cm"/>
 			<var name="refl10cm_max"/>
 			<var name="rainc"/>
 			<var name="rainnc"/>
@@ -1755,7 +1761,7 @@
 
                         <var name="qh" array_group="moist" units="kg kg^{-1}"
                              description="Hail mixing ratio"
-                             packages="mp_nssl2m_in"/>
+                             packages="nssl_hail_in"/>
 
                         <var name="ni" array_group="number" units="nb kg^{-1}"
                              description="Cloud ice number concentration"
@@ -1775,11 +1781,11 @@
 
                         <var name="nh" array_group="number" units="nb kg^{-1}"
                              description="Hail number concentration"
-                             packages="mp_nssl2m_in"/>
+                             packages="nssl_hail_in"/>
 
                         <var name="nccn" array_group="number" units="nb kg^{-1}"
                              description="Cloud condensation nuclei concentration"
-                             packages="mp_nssl2m_in"/>
+                             packages="nssl_ccn_in"/>
 
                         <var name="volg" array_group="volume" units="m^{3} kg^{-1}"
                              description="Graupel particle volume"
@@ -1787,7 +1793,7 @@
 
                         <var name="volh" array_group="volume" units="m^{3} kg^{-1}"
                              description="Hail particle volume"
-                             packages="mp_nssl2m_in"/>
+                             packages="nssl_hail_in"/>
 
                         <var name="zrw" array_group="reflectivity" units="nb kg^{-1}"
                              description="Rain reflectivity moment"
@@ -1799,11 +1805,11 @@
 
                         <var name="zhw" array_group="reflectivity" units="nb kg^{-1}"
                              description="Hail reflectivity moment"
-                             packages="nssl3m_in"/>
+                             packages="nssl3m_hail_in"/>
 
                         <var name="nc" array_group="number" units="nb kg^{-1}"
                              description="Cloud water number concentration"
-                             packages="mp_thompson_aers_in;tempo_aerosolaware_in"/>
+                             packages="mp_thompson_aers_in;mp_nssl2m_in;tempo_aerosolaware_in"/>
 
                         <var name="nifa" array_group="number" units="nb kg^{-1}"
                              description="Ice-friendly aerosol number concentration"
@@ -2146,7 +2152,7 @@
 
                         <var name="tend_qh" name_in_code="qh" array_group="moist" units="kg m^{-3} s^{-1}"
                              description="Tendency of hail mass per unit volume divided by d(zeta)/dz"
-                             packages="mp_nssl2m_in"/>
+                             packages="nssl_hail_in"/>
 
                         <var name="tend_ni" name_in_code="ni" array_group="number" units="nb m^{-3} s^{-1}"
                              description="Tendency of cloud ice number concentration multiplied by dry air density divided by d(zeta)/dz"
@@ -2166,11 +2172,11 @@
 
                         <var name="tend_nh" name_in_code="nh" array_group="number" units="nb m^{-3} s^{-1}"
                              description="Tendency of hail number concentration multiplied by dry air density divided by d(zeta)/dz"
-                             packages="mp_nssl2m_in"/>
+                             packages="nssl_hail_in"/>
 
                         <var name="tend_nccn" name_in_code="nccn" array_group="number" units="nb m^{-3} s^{-1}"
                              description="Tendency of CCN number concentration multiplied by dry air density divided by d(zeta)/dz"
-                             packages="mp_nssl2m_in"/>
+                             packages="nssl_ccn_in"/>
 
                         <var name="tend_volg" name_in_code="volg" array_group="volume" units="m^{3} s^{-1}"
                              description="Tendency of graupel volume multiplied by dry air density divided by d(zeta)/dz"
@@ -2178,7 +2184,7 @@
 
                         <var name="tend_volh" name_in_code="volh" array_group="volume" units="m^{3} s^{-1}"
                              description="Tendency of hail volume multiplied by dry air density divided by d(zeta)/dz"
-                             packages="mp_nssl2m_in"/>
+                             packages="nssl_hail_in"/>
 
                         <var name="tend_zrw" name_in_code="zrw" array_group="reflectivity" units="m^6 m^{-3} s^{-1}"
                              description="Tendency of rain reflectivity multiplied by dry air density divided by d(zeta)/dz"
@@ -2190,11 +2196,11 @@
 
                         <var name="tend_zhw" name_in_code="zhw" array_group="reflectivity" units="m^6 m^{-3} s^{-1}"
                              description="Tendency of hail reflectivity multiplied by dry air density divided by d(zeta)/dz"
-                             packages="nssl3m_in"/>
+                             packages="nssl3m_hail_in"/>
 
                         <var name="tend_nc" name_in_code="nc" array_group="number" units="nb m^{-3} s^{-1}"
                              description="Tendency of cloud water number concentration multiplied by dry air density divided by d(zeta)/dz"
-                             packages="mp_thompson_aers_in;tempo_aerosolaware_in"/>
+                             packages="mp_thompson_aers_in;mp_nssl2m_in;tempo_aerosolaware_in"/>
 
                         <var name="tend_nifa" name_in_code="nifa" array_group="number" units="nb m^{-3} s^{-1}"
                              description="Tendency of ice-friendly aerosol number concentration multiplied by dry air density divided by d(zeta)/dz"
@@ -2262,7 +2268,7 @@
                              units="kg kg^{-1} s^{-1}"
                              description="Lateral boundary tendency of graupel mixing ratio"/>
 
-                        <var name="lbc_qh" name_in_code="qh" array_group="moist"  packages="mp_nssl2m_in" units="kg kg^{-1} s^{-1}"
+                        <var name="lbc_qh" name_in_code="qh" array_group="moist"  packages="nssl_hail_in" units="kg kg^{-1} s^{-1}"
                              description="Lateral boundary tendency of hail mixing ratio"/>
 
                         <var name="lbc_nr" name_in_code="nr" array_group="number" packages="mp_thompson_in;mp_nssl2m_in;mp_thompson_aers_in;mp_tempo_in"
@@ -2279,7 +2285,7 @@
                         <var name="lbc_ng" name_in_code="ng" array_group="number" packages="mp_nssl2m_in;tempo_hailaware_in" units="m^{-3} s^{-1}"
                              description="Lateral boundary tendency of graupel number concentration"/>
 
-                        <var name="lbc_nh" name_in_code="nh" array_group="number" packages="mp_nssl2m_in" units="m^{-3} s^{-1}"
+                        <var name="lbc_nh" name_in_code="nh" array_group="number" packages="nssl_hail_in" units="m^{-3} s^{-1}"
                              description="Lateral boundary tendency of hail number concentration"/>
 
                         <var name="lbc_nccn" name_in_code="nccn" array_group="number" packages="mp_nssl2m_in" units="m^{-3} s^{-1}"
@@ -2291,7 +2297,7 @@
                         <var name="lbc_volh" name_in_code="volh" array_group="volume" packages="mp_nssl2m_in" units="m^{3} s^{-1}"
                              description="Lateral boundary tendency of hail particle volume"/>
 
-                        <var name="lbc_nc" name_in_code="nc" array_group="number" packages="mp_thompson_aers_in;tempo_aerosolaware_in"
+                        <var name="lbc_nc" name_in_code="nc" array_group="number" packages="mp_thompson_aers_in;mp_nssl2m_in;tempo_aerosolaware_in"
                              units="m^{-3} s^{-1}"
                              description="Lateral boundary tendency of cloud water number concentration"/>
 
@@ -2485,10 +2491,40 @@
                      description="Logical flag to turn on/off ML prediction of microphysics rain number concentrations"
                      possible_values=".true. or .false."/>
 
-                <nml_option name="config_nssl_moments" type="character" default_value="nssl2m" in_defaults="false"
+                <nml_option name="config_nssl_3moment" type="logical" default_value="false" in_defaults="false"
                      units="-"
                      description="Whether to activate the 3moment version of NSSL"
-                     possible_values="`nssl2m',`nssl3m'"/>
+                     possible_values=".true. or .false."/>
+
+                <nml_option name="config_nssl_hail_on" type="logical" default_value="true" in_defaults="false"
+                     units="-"
+                     description="Whether to activate the hail category in NSSL MP"
+                     possible_values=".true. or .false."/>
+
+                <nml_option name="config_nssl_ccn_on" type="logical" default_value="true" in_defaults="false"
+                     units="-"
+                     description="Whether to activate the CCN category in NSSL MP"
+                     possible_values=".true. or .false."/>
+
+                <nml_option name="config_nssl_cccn" type="real" default_value="0.8e9" in_defaults="false"
+                     units="sm-3"
+                     description="NSSL-MP cloud condensation nuclei concentration (sm-3)"
+                     possible_values="Positive real values"/>
+
+                <nml_option name="config_nssl_alphar" type="real" default_value="0.0" in_defaults="false"
+                     units="-"
+                     description="NSSL-MP rain PSD shape parameter"
+                     possible_values="Positive real values"/>
+
+                <nml_option name="config_nssl_alphah" type="real" default_value="0.0" in_defaults="false"
+                     units="-"
+                     description="NSSL-MP graupel PSD shape parameter"
+                     possible_values="Positive real values"/>
+
+                <nml_option name="config_nssl_alphahl" type="real" default_value="1.0" in_defaults="false"
+                     units="-"
+                     description="NSSL-MP hail PSD shape parameter"
+                     possible_values="Positive real values"/>
 
                 <nml_option name="config_convection_scheme" type="character" default_value="suite" in_defaults="false"
                      units="-"
@@ -2499,6 +2535,16 @@
                      units="-"
                      description="Option for the lateral subsidence spread for the Grell-Freitas scheme"
                      possible_values="0,1,2"/>
+
+                <nml_option name="config_nssl_ehw0" type="real" default_value="0.9" in_defaults="false"
+                     units="-"
+                     description="NSSL-MP graupel-droplet collection efficiency"
+                     possible_values="Positive real values"/>
+
+                <nml_option name="config_nssl_ehlw0" type="real" default_value="0.9" in_defaults="false"
+                     units="-"
+                     description="NSSL-MP hail-droplet collection efficiency"
+                     possible_values="Positive real values"/>
 
                 <nml_option name="config_lsm_scheme" type="character" default_value="suite" in_defaults="false"
                      units="-"
@@ -2740,21 +2786,24 @@
                 <!-- ... PARAMETERIZATION OF CLOUD MICROPHYSICS:                                                        -->
                 <!-- ================================================================================================== -->
 
-		<var name="refl10cm" type="real" dimensions="nVertLevels nCells Time" units="dBZ"
-                     description="10 cm radar reflectivity"
-                     packages="mp_thompson_in;mp_wsm6_in;mp_nssl2m_in;mp_tempo_in"/>
-
-		<var name="max_hail_diameter_sfc" type="real" dimensions="nCells Time" units="mm"
+                <var name="max_hail_diameter_sfc" type="real" dimensions="nCells Time" units="mm"
                      description="Maximum hail diameter at the surface"
-                     packages="mp_tempo_in"/>
+                     packages="mp_nssl2m_in;mp_tempo_in"/>
 
-		<var name="max_hail_diameter_column" type="real" dimensions="nCells Time" units="mm"
+                <var name="max_hail_diameter_column" type="real" dimensions="nCells Time" units="mm"
                      description="Maximum hail diameter in the vertical column"
-                     packages="mp_tempo_in"/>
+                     packages="mp_nssl2m_in;mp_tempo_in"/>
 
-		<var name="max_hail_diameter_sfc_acc" type="real" dimensions="nCells Time" units="mm"
+                <var name="max_hail_diameter_column_acc" type="real" dimensions="nCells Time" units="mm"
+                     description="Maximum hail diameter in the vertical column accumulated over diagnostic output"
+                     packages="mp_nssl2m_in;mp_tempo_in"/>
+
+                <var name="max_hail_diameter_sfc_acc" type="real" dimensions="nCells Time" units="mm"
                      description="Maximum hail diameter at the surface accumulated over diagnostic output"
-                     packages="mp_tempo_in"/>
+                     packages="mp_nssl2m_in;mp_tempo_in"/>
+
+                <var name="do_diag_dbz" type="integer" dimensions="" units = ""
+                    description="flag for whether to compute refelctivity at every time step for use in computing output-time-max 1km reflectivity"/>
 
                 <var name="refl10cm_max" type="real" dimensions="nCells Time" units="dBZ"
                      description="10 cm maximum radar reflectivity"
@@ -2768,8 +2817,9 @@
                      description="maximum diagnosed 10 cm radar reflectivity at 1 km AGL since last output time"
                      packages="mp_thompson_in;mp_thompson_aers_in;mp_wsm6_in;mp_nssl2m_in;mp_tempo_in"/>
 
-		<var name="do_diag_dbz" type="integer" dimensions="" units = ""
-		    description="flag for whether to compute refelctivity at every time step for use in computing output-time-max 1km reflectivity"/>
+                <var name="refl10cm" type="real" dimensions="nVertLevels nCells Time" units="dBZ"
+                     description="10 cm radar reflectivity"
+                     packages="mp_thompson_in;mp_thompson_aers_in;mp_wsm6_in;mp_nssl2m_in;mp_tempo_in"/>
 
                 <var name="i_rainnc" type="integer" dimensions="nCells Time" units="unitless"
                      description="incidence of accumulated grid-scale precipitation greater than config_bucket_rainnc"
@@ -2787,6 +2837,10 @@
                      description="time-step grid-scale precipitation of graupel"
                      packages="mp_thompson_in;mp_thompson_aers_in;mp_wsm6_in;mp_nssl2m_in;lsm_ruc_in;mp_tempo_in"/>
 
+                <var name="hailncv" type="real" dimensions="nCells Time" units="mm"
+                     description="time-step grid-scale precipitation of hail"
+                     packages="mp_nssl2m_in"/>
+
                 <var name="rainnc" type="real" dimensions="nCells Time" units="mm"
                      description="accumulated total grid-scale precipitation"
                      packages="mp_kessler_in;mp_thompson_in;mp_thompson_aers_in;mp_wsm6_in;mp_nssl2m_in;mp_tempo_in"/>
@@ -2802,6 +2856,10 @@
                 <var name="graupelnc" type="real" dimensions="nCells Time" units="mm"
                      description="accumulated grid-scale precipitation of graupel"
                      packages="mp_thompson_in;mp_thompson_aers_in;mp_wsm6_in;mp_nssl2m_in;mp_tempo_in"/>
+
+                <var name="hailnc" type="real" dimensions="nCells Time" units="mm"
+                     description="accumulated grid-scale precipitation of hail"
+                     packages="mp_nssl2m_in"/>
 
                 <var name="rainprod" type="real" dimensions="nVertLevels nCells Time" units="s^{-1}"
                      description="rain production rate"
@@ -3891,43 +3949,43 @@
 
                 <var name="rthmpten" type="real" dimensions="nVertLevels nCells Time" units="K s^{-1}"
                      description="tendency of potential temperature due to cloud microphysics"
-                     packages="mp_thompson_in;mp_thompson_aers_in;mp_wsm6_in;mp_tempo_in"/>
+                     packages="mp_thompson_in;mp_thompson_aers_in;mp_wsm6_in;mp_nssl2m_in;mp_tempo_in"/>
 
                 <var name="rqvmpten" type="real" dimensions="nVertLevels nCells Time" units="kg kg^{-1} s^{-1}"
                      description="tendency of water vapor mixing ratio due to cloud microphysics"
-                     packages="mp_thompson_in;mp_thompson_aers_in;mp_wsm6_in;mp_tempo_in"/>
+                     packages="mp_thompson_in;mp_thompson_aers_in;mp_wsm6_in;mp_nssl2m_in;mp_tempo_in"/>
 
                 <var name="rqcmpten" type="real" dimensions="nVertLevels nCells Time" units="kg kg^{-1} s^{-1}"
                      description="tendency of cloud water mixing ratio due to cloud microphysics"
-                     packages="mp_thompson_in;mp_thompson_aers_in;mp_wsm6_in;mp_tempo_in"/>
+                     packages="mp_thompson_in;mp_thompson_aers_in;mp_wsm6_in;mp_nssl2m_in;mp_tempo_in"/>
 
                 <var name="rqrmpten" type="real" dimensions="nVertLevels nCells Time" units="kg kg^{-1} s^{-1}"
                      description="tendency of rain mixing ratio due to cloud microphysics"
-                     packages="mp_thompson_in;mp_thompson_aers_in;mp_wsm6_in;mp_tempo_in"/>
+                     packages="mp_thompson_in;mp_thompson_aers_in;mp_wsm6_in;mp_nssl2m_in;mp_tempo_in"/>
 
                 <var name="rqimpten" type="real" dimensions="nVertLevels nCells Time" units="kg kg^{-1} s^{-1}"
                      description="tendency of cloud ice mixing ratio due to cloud microphysics"
-                     packages="mp_thompson_in;mp_thompson_aers_in;mp_wsm6_in;mp_tempo_in"/>
+                     packages="mp_thompson_in;mp_thompson_aers_in;mp_wsm6_in;mp_nssl2m_in;mp_tempo_in"/>
 
                 <var name="rqsmpten" type="real" dimensions="nVertLevels nCells Time" units="kg kg^{-1} s^{-1}"
                      description="tendency of snow mixing ratio due to cloud microphysics"
-                     packages="mp_thompson_in;mp_thompson_aers_in;mp_wsm6_in;mp_tempo_in"/>
+                     packages="mp_thompson_in;mp_thompson_aers_in;mp_wsm6_in;mp_nssl2m_in;mp_tempo_in"/>
 
                 <var name="rqgmpten" type="real" dimensions="nVertLevels nCells Time" units="kg kg^{-1} s^{-1}"
                      description="tendency of graupel mixing ratio due to cloud microphysics"
-                     packages="mp_thompson_in;mp_thompson_aers_in;mp_wsm6_in;mp_tempo_in"/>
+                     packages="mp_thompson_in;mp_thompson_aers_in;mp_wsm6_in;mp_nssl2m_in;mp_tempo_in"/>
 
                 <var name="rnimpten" type="real" dimensions="nVertLevels nCells Time" units="nb kg^{-1} s^{-1}"
                      description="tendency of cloud ice number concentration due to microphysics"
-                     packages="mp_thompson_in;mp_thompson_aers_in;mp_tempo_in"/>
+                     packages="mp_thompson_in;mp_thompson_aers_in;mp_nssl2m_in;mp_tempo_in"/>
 
                 <var name="rnrmpten" type="real" dimensions="nVertLevels nCells Time" units="nb kg^{-1} s^{-1}"
                      description="tendency of rain number concentration due to microphysics"
-                     packages="mp_thompson_in;mp_thompson_aers_in;mp_tempo_in"/>
+                     packages="mp_thompson_in;mp_thompson_aers_in;mp_nssl2m_in;mp_tempo_in"/>
 
                 <var name="rncmpten" type="real" dimensions="nVertLevels nCells Time" units="nb kg^{-1} s^{-1}"
                      description="tendency of cloud water number concentration due to microphysics"
-                     packages="mp_thompson_aers_in;tempo_aerosolaware_in"/>
+                     packages="mp_thompson_aers_in;tempo_aerosolaware_in;mp_nssl2m_in"/>
 
                 <var name="rnifampten" type="real" dimensions="nVertLevels nCells Time" units="nb kg^{-1} s^{-1}"
                      description="tendency of ice-friendly aerosol number concentration due to microphysics"
@@ -4378,7 +4436,7 @@
                           units="kg kg^{-1}"
                           description="Graupel mixing ratio increment"/>
 
-                     <var name="qh_amb"  name_in_code="qh" array_group="moist" packages="mp_nssl2m_in" units="kg kg^{-1}"
+                     <var name="qh_amb"  name_in_code="qh" array_group="moist" packages="nssl_hail_in" units="kg kg^{-1}"
                           description="Hail mixing ratio increment"/>
                 </var_array>
          </var_struct>
