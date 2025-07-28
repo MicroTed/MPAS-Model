@@ -861,7 +861,7 @@
                   refl_diagnostic = refl10cm_1km_p, diag_dbz = do_diag_dbz_flag, kdbz1km=kdbz1km  , &
                   f_cn       =  config_nssl_ccn_on, &
                   hail_maxk1 = max_hail_diameter_sfc_p, hail_max2d = max_hail_diameter_column_p   , &
-                  nwp_diagnostics = nwp_diag,                                                       &
+                  nwp_diagnostics = do_diag_dbz,                                                       &
                   ids = ids , ide = ide , jds = jds , jde = jde , kds = kds , kde = kde           , &
                   ims = ims , ime = ime , jms = jms , jme = jme , kms = kms , kme = kme           , &
                   its = its , ite = ite , jts = jts , jte = jte , kts = kts , kte = kte           , &
